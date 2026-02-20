@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solar Shadow Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 100vw; height: 100vh; overflow: hidden;
+    background: #0d0d1a; color: #e0e0e8;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  #header {
+    padding: 10px 20px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #1e2030; background: #0f1020; flex-shrink: 0; z-index: 10;
+  }
+  #header .logo { display: flex; align-items: center; gap: 10px; }
+  #header .sun-icon {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffdd44, #ff8800);
+    box-shadow: 0 0 18px #ff880066;
+  }
+  #header .title { font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #f0e6d0; }
+  #header .info { font-size: 10px; color: #667; letter-spacing: 0.5px; }
+
+  /* ── Layout ─────────────────────────────────────── */
+  #main { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ────────────────────────────────────── */
+  #sidebar {
+    width: 270px; flex-shrink: 0; padding: 14px; overflow-y: auto;
+    background: #0e0e1c; border-right: 1px solid #1e2030;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .section-title {
+    font-size: 9px; font-weight: 700; letter-spacing: 2px; color: #556;
+    margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #1a1a2e;
+  }
+  .label-row {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;
+  }
+  .label-row label { font-size: 10px; color: #778; }
+  .label-sm { font-size: 9px; color: #556; display: block; margin-bottom: 2px; }
+
+  input[type="number"], input[type="date"] {
+    background: #141428; border: 1px solid #2a2a40; border-radius: 4px;
+    color: #ccc; padding: 4px 8px; font-size: 11px; font-family: inherit; outline: none;
+  }
+  input[type="number"] { width: 88px; text-align: right; }
+  input[type="date"] { width: 130px; color-scheme: dark; }
+
+  input[type="range"] {
+    width: 100%; accent-color: #ffaa44; height: 4px; cursor: pointer;
+  }
+
+  .chip-group { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+
+  .chip {
+    padding: 3px 8px; font-size: 10px; border: 1px solid #2a2a40;
+    background: transparent; color: #889; border-radius: 4px;
+    cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .chip:hover { border-color: #445; color: #aab; }
+  .chip.active { border-color: #ffaa44; background: #ffaa4418; color: #ffcc66; }
+
+  .scene-btn {
+    padding: 6px 10px; font-size: 11px; text-align: left;
+    border: 1px solid #2a2a40; background: transparent; color: #889;
+    border-radius: 4px; cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .scene-btn:hover { border-color: #445; color: #aab; }
+  .scene-btn.active { border-color: #ffaa44; background: #ffaa4418; color: #ffcc66; }
+
+  .time-display {
+    font-size: 20px; font-weight: 700; color: #ffcc66; letter-spacing: 2px;
+  }
+
+  #play-btn {
+    flex: 1; padding: 7px 12px; font-size: 11px; border: none; border-radius: 4px;
+    cursor: pointer; font-weight: 700; font-family: inherit; letter-spacing: 1px;
+    color: #fff; transition: background 0.2s;
+  }
+  #play-btn.paused { background: #44aa66; }
+  #play-btn.playing { background: #ff5544; }
+
+  #sidebar-footer {
+    font-size: 9px; color: #445; line-height: 1.5; margin-top: auto; padding-top: 12px;
+  }
+
+  /* ── Viewport ───────────────────────────────────── */
+  #viewport { flex: 1; position: relative; }
+  #viewport canvas { width: 100%; height: 100%; display: block; cursor: grab; }
+  #viewport canvas:active { cursor: grabbing; }
+
+  #compass {
+    position: absolute; bottom: 16px; right: 16px; width: 56px; height: 56px;
+    border-radius: 50%; border: 1px solid #2a2a40; background: #0d0d1a99;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #667; backdrop-filter: blur(4px); pointer-events: none;
+  }
+  #compass span { position: absolute; }
+  #compass .n { top: 4px; color: #cc4444; font-weight: 700; }
+  #compass .s { bottom: 4px; }
+  #compass .w { left: 6px; }
+  #compass .e { right: 6px; }
+
+  #night-banner {
+    display: none; position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    padding: 6px 16px; border-radius: 6px; background: #1a1030dd;
+    border: 1px solid #443366; color: #aa88cc; font-size: 11px;
+    backdrop-filter: blur(4px); pointer-events: none; white-space: nowrap;
+  }
+  #night-banner.visible { display: block; }
+
+  /* ── Responsive ─────────────────────────────────── */
+  @media (max-width: 700px) {
+    #main { flex-direction: column-reverse; }
+    #sidebar {
+      width: 100%; height: 220px; flex-shrink: 0; flex-direction: row;
+      flex-wrap: wrap; overflow-x: auto; overflow-y: hidden; gap: 10px;
+      border-right: none; border-top: 1px solid #1e2030;
+    }
+    #sidebar > div { min-width: 200px; }
+    #sidebar-footer { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+  <div class="logo">
+    <div class="sun-icon"></div>
+    <span class="title">SOLAR SHADOW LAB</span>
+  </div>
+  <div class="info" id="sun-info">Sun Alt: 0° | Az: 0°</div>
+</div>
+
+<div id="main">
+  <!-- Sidebar -->
+  <div id="sidebar">
+
+    <!-- Location -->
+    <div>
+      <div class="section-title">LOCATION</div>
+      <div class="chip-group" id="location-chips"></div>
+      <div class="label-row">
+        <label>Latitude</label>
+        <input type="number" id="lat" value="40.7128" step="0.1" min="-90" max="90">
+      </div>
+      <div class="label-row">
+        <label>Longitude</label>
+        <input type="number" id="lng" value="-74.006" step="0.1" min="-180" max="180">
+      </div>
+    </div>
+
+    <!-- Date & Time -->
+    <div>
+      <div class="section-title">DATE &amp; TIME</div>
+      <div class="label-row">
+        <label>Date</label>
+        <input type="date" id="dateInput" value="2025-06-21">
+      </div>
+      <div class="label-row">
+        <label>Time</label>
+        <span class="time-display" id="timeDisplay">10:00</span>
+      </div>
+      <div>
+        <span class="label-sm" id="hourLabel">Hour: 10</span>
+        <input type="range" id="hourSlider" min="0" max="23" value="10">
+      </div>
+      <div>
+        <span class="label-sm" id="minLabel">Minute: 0</span>
+        <input type="range" id="minSlider" min="0" max="59" value="0">
+      </div>
+    </div>
+
+    <!-- Playback -->
+    <div>
+      <div class="section-title">TIME-LAPSE</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button id="play-btn" class="paused">▶ PLAY</button>
+      </div>
+      <div>
+        <span class="label-sm" id="speedLabel">Speed: 10× min/s</span>
+        <input type="range" id="speedSlider" min="1" max="120" value="10">
+      </div>
+    </div>
+
+    <!-- Scene -->
+    <div>
+      <div class="section-title">3D SCENE</div>
+      <div style="display:flex;flex-direction:column;gap:4px;" id="scene-btns"></div>
+    </div>
+
+    <!-- Quick Dates -->
+    <div>
+      <div class="section-title">QUICK DATES</div>
+      <div class="chip-group" id="date-chips"></div>
+    </div>
+
+    <div id="sidebar-footer">
+      Drag to orbit · Scroll to zoom<br>
+      Sun via astronomical algorithms<br>
+      Real-time PCF shadow mapping
+    </div>
+  </div>
+
+  <!-- 3D Viewport -->
+  <div id="viewport">
+    <canvas id="canvas"></canvas>
+    <div id="compass">
+      <span class="n">N</span><span class="s">S</span>
+      <span class="w">W</span><span class="e">E</span>
+    </div>
+    <div id="night-banner">☽ Sun below horizon — nighttime</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// SunCalc – embedded minimal solar position calculator
+// ══════════════════════════════════════════════════════════════════════
+const SunCalc = (() => {
+  const rad = Math.PI / 180, dayMs = 864e5, J1970 = 2440588, J2000 = 2451545, e = rad * 23.4397;
+  const toJulian = d => d.valueOf() / dayMs - 0.5 + J1970;
+  const toDays = d => toJulian(d) - J2000;
+  const rightAscension = (l, b) => Math.atan2(Math.sin(l)*Math.cos(e) - Math.tan(b)*Math.sin(e), Math.cos(l));
+  const declination = (l, b) => Math.asin(Math.sin(b)*Math.cos(e) + Math.cos(b)*Math.sin(e)*Math.sin(l));
+  const azimuth = (H, phi, dec) => Math.atan2(Math.sin(H), Math.cos(H)*Math.sin(phi) - Math.tan(dec)*Math.cos(phi));
+  const altitude = (H, phi, dec) => Math.asin(Math.sin(phi)*Math.sin(dec) + Math.cos(phi)*Math.cos(dec)*Math.cos(H));
+  const solarMeanAnomaly = d => rad * (357.5291 + 0.98560028 * d);
+  const eclipticLongitude = M => {
+    const C = rad * (1.9148*Math.sin(M) + 0.02*Math.sin(2*M) + 0.0003*Math.sin(3*M));
+    return M + C + rad*102.9372 + Math.PI;
+  };
+  const sunCoords = d => { const M = solarMeanAnomaly(d), L = eclipticLongitude(M); return { dec: declination(L,0), ra: rightAscension(L,0) }; };
+  const siderealTime = (d, lw) => rad * (280.16 + 360.9856235 * d) - lw;
+  return {
+    getPosition(date, lat, lng) {
+      const lw = rad * -lng, phi = rad * lat, d = toDays(date), c = sunCoords(d), H = siderealTime(d, lw) - c.ra;
+      return { azimuth: azimuth(H, phi, c.dec) + Math.PI, altitude: altitude(H, phi, c.dec) };
+    }
+  };
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════════════════════════
+const state = {
+  lat: 40.7128, lng: -74.006, locationName: 'New York',
+  date: '2025-06-21', hour: 10, minute: 0,
+  playing: false, playSpeed: 10, sceneId: 'office',
+};
+
+const LOCATIONS = [
+  { name:'New York', lat:40.7128, lng:-74.006 },
+  { name:'London', lat:51.5074, lng:-0.1278 },
+  { name:'Tokyo', lat:35.6762, lng:139.6503 },
+  { name:'Sydney', lat:-33.8688, lng:151.2093 },
+  { name:'Tbilisi', lat:41.7151, lng:44.8271 },
+  { name:'Dubai', lat:25.2048, lng:55.2708 },
+  { name:'São Paulo', lat:-23.5505, lng:-46.6333 },
+  { name:'Reykjavik', lat:64.1466, lng:-21.9426 },
+];
+
+const SCENES = [
+  { name:'Office Block', id:'office' },
+  { name:'Residential', id:'residential' },
+  { name:'Tower + Plaza', id:'tower' },
+  { name:'Courtyard', id:'courtyard' },
+];
+
+const QUICK_DATES = [
+  { label:'Summer Solstice', d:'2025-06-21' },
+  { label:'Winter Solstice', d:'2025-12-21' },
+  { label:'Spring Equinox', d:'2025-03-20' },
+  { label:'Fall Equinox', d:'2025-09-22' },
+];
+
+// ══════════════════════════════════════════════════════════════════════
+// DOM refs
+// ══════════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const canvas = $('canvas');
+const sunInfoEl = $('sun-info');
+const timeDisplayEl = $('timeDisplay');
+const hourSlider = $('hourSlider');
+const minSlider = $('minSlider');
+const hourLabel = $('hourLabel');
+const minLabel = $('minLabel');
+const speedSlider = $('speedSlider');
+const speedLabel = $('speedLabel');
+const dateInput = $('dateInput');
+const latInput = $('lat');
+const lngInput = $('lng');
+const playBtn = $('play-btn');
+const nightBanner = $('night-banner');
+
+// ══════════════════════════════════════════════════════════════════════
+// Build UI chips / buttons
+// ══════════════════════════════════════════════════════════════════════
+function buildChips() {
+  const locGroup = $('location-chips');
+  LOCATIONS.forEach(loc => {
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (loc.name === state.locationName ? ' active' : '');
+    btn.textContent = loc.name;
+    btn.addEventListener('click', () => {
+      state.lat = loc.lat; state.lng = loc.lng; state.locationName = loc.name;
+      latInput.value = loc.lat; lngInput.value = loc.lng;
+      locGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      updateSun();
+    });
+    locGroup.appendChild(btn);
+  });
+
+  const sceneGroup = $('scene-btns');
+  SCENES.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'scene-btn' + (s.id === state.sceneId ? ' active' : '');
+    btn.textContent = s.name;
+    btn.addEventListener('click', () => {
+      state.sceneId = s.id;
+      sceneGroup.querySelectorAll('.scene-btn').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      buildSceneGeometry();
+    });
+    sceneGroup.appendChild(btn);
+  });
+
+  const dateGroup = $('date-chips');
+  QUICK_DATES.forEach(q => {
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (q.d === state.date ? ' active' : '');
+    btn.textContent = q.label;
+    btn.style.fontSize = '9px';
+    btn.addEventListener('click', () => {
+      state.date = q.d; dateInput.value = q.d;
+      dateGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      updateSun();
+    });
+    dateGroup.appendChild(btn);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Three.js setup
+// ══════════════════════════════════════════════════════════════════════
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+scene.fog = new THREE.Fog(0x1a1a2e, 80, 150);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+// Ground
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 200),
+  new THREE.MeshStandardMaterial({ color: 0x2d3436, roughness: 0.9 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Grid
+const grid = new THREE.GridHelper(100, 50, 0x3d4450, 0x2a2f3a);
+grid.position.y = 0.01;
+scene.add(grid);
+
+// Lights
+scene.add(new THREE.AmbientLight(0x404060, 0.4));
+scene.add(new THREE.HemisphereLight(0x87ceeb, 0x3d4450, 0.3));
+
+const sunLight = new THREE.DirectionalLight(0xffeedd, 2.0);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 150;
+sunLight.shadow.camera.left = -40;
+sunLight.shadow.camera.right = 40;
+sunLight.shadow.camera.top = 40;
+sunLight.shadow.camera.bottom = -40;
+sunLight.shadow.bias = -0.001;
+scene.add(sunLight);
+scene.add(sunLight.target);
+
+const sunSphere = new THREE.Mesh(
+  new THREE.SphereGeometry(1.5, 16, 16),
+  new THREE.MeshBasicMaterial({ color: 0xffdd44 })
+);
+scene.add(sunSphere);
+
+// ══════════════════════════════════════════════════════════════════════
+// Scene geometry builder
+// ══════════════════════════════════════════════════════════════════════
+const buildings = [];
+
+function addBox(w, h, d, x, y, z, color) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.1 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y + h / 2, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  buildings.push(mesh);
+  return mesh;
+}
+
+function buildSceneGeometry() {
+  buildings.forEach(m => { m.geometry.dispose(); m.material.dispose(); scene.remove(m); });
+  buildings.length = 0;
+
+  switch (state.sceneId) {
+    case 'office':
+      addBox(8,12,6, 0,0,0, 0x78909c);
+      addBox(5,6,5, -10,0,4, 0x90a4ae);
+      addBox(4,3,8, 8,0,-2, 0xa0aeb8);
+      addBox(6,8,4, 10,0,8, 0x8899a6);
+      addBox(3,1.5,3, -5,0,-8, 0xbcc5cc);
+      break;
+    case 'residential':
+      addBox(4,5,4, -8,0,0, 0xa1887f);
+      addBox(4,7,4, -2,0,0, 0xa1887f);
+      addBox(4,4.5,4, 4,0,0, 0xa1887f);
+      addBox(4,6,4, 10,0,0, 0xa1887f);
+      addBox(3,2,3, 5,0,-8, 0xbcaaa4);
+      addBox(2.5,2.5,2.5, -6,0,8, 0xc8b7ae);
+      break;
+    case 'tower':
+      addBox(5,22,5, 0,0,0, 0x607d8b);
+      addBox(16,0.3,16, 0,0,0, 0x9e9e9e);
+      addBox(3,3,3, -8,0,6, 0x8d9ea8);
+      addBox(3,3,3, 8,0,-6, 0x8d9ea8);
+      break;
+    case 'courtyard':
+      addBox(12,5,2, 0,0,-7, 0x8d6e63);
+      addBox(12,5,2, 0,0,7, 0x8d6e63);
+      addBox(2,5,12, -7,0,0, 0x8d6e63);
+      addBox(2,5,12, 7,0,0, 0x8d6e63);
+      addBox(2,7,2, -7,0,-7, 0x6d4c41);
+      break;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Sun position updater
+// ══════════════════════════════════════════════════════════════════════
+function updateSun() {
+  const [y, m, d] = state.date.split('-').map(Number);
+  const dt = new Date(y, m - 1, d, state.hour, state.minute);
+  const pos = SunCalc.getPosition(dt, state.lat, state.lng);
+
+  const azDeg = (pos.azimuth * 180 / Math.PI).toFixed(1);
+  const altDeg = (pos.altitude * 180 / Math.PI).toFixed(1);
+  sunInfoEl.textContent = `Sun Alt: ${altDeg}° | Az: ${azDeg}° | ${state.locationName}`;
+
+  const dist = 60;
+  const sx = dist * Math.cos(pos.altitude) * Math.sin(pos.azimuth);
+  const sy = dist * Math.sin(pos.altitude);
+  const sz = dist * Math.cos(pos.altitude) * Math.cos(pos.azimuth);
+
+  sunLight.position.set(sx, Math.max(sy, 0.5), sz);
+  sunLight.target.position.set(0, 0, 0);
+  sunSphere.position.copy(sunLight.position);
+
+  const alt = pos.altitude * 180 / Math.PI;
+  if (alt < 0) {
+    sunLight.intensity = 0.05;
+    sunLight.color.setHex(0x1a1a3e);
+    sunSphere.material.color.setHex(0x000334);
+    scene.background.setHex(0x0a0a1a);
+    nightBanner.classList.add('visible');
+    nightBanner.textContent = `☽ Sun below horizon (${altDeg}°) — nighttime`;
+  } else {
+    nightBanner.classList.remove('visible');
+    if (alt < 10) {
+      const t = alt / 10;
+      sunLight.intensity = 0.3 + t * 1.2;
+      sunLight.color.setHex(0xff8844);
+      sunSphere.material.color.setHex(0xff6622);
+      scene.background.setHex(0x1a1020);
+    } else {
+      const t = Math.min((alt - 10) / 40, 1);
+      sunLight.intensity = 1.5 + t * 1.0;
+      sunLight.color.lerpColors(new THREE.Color(0xff9955), new THREE.Color(0xffeedd), t);
+      sunSphere.material.color.lerpColors(new THREE.Color(0xffaa44), new THREE.Color(0xffee88), t);
+      scene.background.lerpColors(new THREE.Color(0x1a1a2e), new THREE.Color(0x1e2a3a), t);
+    }
+  }
+
+  timeDisplayEl.textContent = String(state.hour).padStart(2,'0') + ':' + String(state.minute).padStart(2,'0');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Camera orbit
+// ══════════════════════════════════════════════════════════════════════
+const orbit = { theta: Math.PI / 4, phi: Math.PI / 4, radius: 45 };
+let mouseDown = false, lastX = 0, lastY = 0;
+
+function updateCamera() {
+  camera.position.set(
+    orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta),
+    orbit.radius * Math.cos(orbit.phi),
+    orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta)
+  );
+  camera.lookAt(0, 4, 0);
+}
+
+canvas.addEventListener('mousedown', e => { mouseDown = true; lastX = e.clientX; lastY = e.clientY; });
+canvas.addEventListener('mousemove', e => {
+  if (!mouseDown) return;
+  orbit.theta += (e.clientX - lastX) * 0.005;
+  orbit.phi = Math.max(0.1, Math.min(Math.PI/2 - 0.05, orbit.phi + (e.clientY - lastY) * 0.005));
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('mouseup', () => mouseDown = false);
+canvas.addEventListener('mouseleave', () => mouseDown = false);
+canvas.addEventListener('wheel', e => {
+  orbit.radius = Math.max(15, Math.min(120, orbit.radius + e.deltaY * 0.05));
+}, { passive: true });
+
+// Touch
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) { mouseDown = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; }
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (!mouseDown || e.touches.length !== 1) return;
+  orbit.theta += (e.touches[0].clientX - lastX) * 0.005;
+  orbit.phi = Math.max(0.1, Math.min(Math.PI/2 - 0.05, orbit.phi + (e.touches[0].clientY - lastY) * 0.005));
+  lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+}, { passive: true });
+canvas.addEventListener('touchend', () => mouseDown = false);
+
+// ══════════════════════════════════════════════════════════════════════
+// Input bindings
+// ══════════════════════════════════════════════════════════════════════
+latInput.addEventListener('input', () => { state.lat = parseFloat(latInput.value) || 0; updateSun(); });
+lngInput.addEventListener('input', () => { state.lng = parseFloat(lngInput.value) || 0; updateSun(); });
+dateInput.addEventListener('input', () => { state.date = dateInput.value; updateSun(); });
+
+hourSlider.addEventListener('input', () => {
+  state.hour = parseInt(hourSlider.value);
+  hourLabel.textContent = `Hour: ${state.hour}`;
+  updateSun();
+});
+minSlider.addEventListener('input', () => {
+  state.minute = parseInt(minSlider.value);
+  minLabel.textContent = `Minute: ${state.minute}`;
+  updateSun();
+});
+speedSlider.addEventListener('input', () => {
+  state.playSpeed = parseInt(speedSlider.value);
+  speedLabel.textContent = `Speed: ${state.playSpeed}× min/s`;
+});
+playBtn.addEventListener('click', () => {
+  state.playing = !state.playing;
+  playBtn.textContent = state.playing ? '⏸ PAUSE' : '▶ PLAY';
+  playBtn.className = state.playing ? 'playing' : 'paused';
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Resize
+// ══════════════════════════════════════════════════════════════════════
+function resize() {
+  const vp = $('viewport');
+  const w = vp.clientWidth, h = vp.clientHeight;
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+// ══════════════════════════════════════════════════════════════════════
+// Animation loop
+// ══════════════════════════════════════════════════════════════════════
+let lastTime = 0;
+
+function animate(time) {
+  requestAnimationFrame(animate);
+
+  if (state.playing && lastTime) {
+    const dt = (time - lastTime) / 1000;
+    let totalMin = state.hour * 60 + state.minute + dt * state.playSpeed;
+    if (totalMin >= 1440) totalMin -= 1440;
+    if (totalMin < 0) totalMin += 1440;
+    state.hour = Math.floor(totalMin / 60);
+    state.minute = Math.floor(totalMin % 60);
+    hourSlider.value = state.hour;
+    minSlider.value = state.minute;
+    hourLabel.textContent = `Hour: ${state.hour}`;
+    minLabel.textContent = `Minute: ${state.minute}`;
+    updateSun();
+  }
+  lastTime = time;
+
+  updateCamera();
+  renderer.render(scene, camera);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════════════
+buildChips();
+buildSceneGeometry();
+resize();
+updateSun();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
